@@ -1,6 +1,14 @@
 plugins {
   id 'java'
   id 'groovy'
+  id 'maven'
+}
+
+group = 'com.github.mouflon_jp'
+version = "0.0.1"
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
 }
 
 repositories {
@@ -19,7 +27,7 @@ dependencies {
 
 	compile 'args4j:args4j:2.33'
 	compile 'jline:jline:2.14.2'
-	compile 'org.eclipse.jetty.aggregate:jetty-all9.3.10.v20160621'
+	compile 'org.eclipse.jetty.aggregate:jetty-all:9.3.10.v20160621'
 	compile 'com.h2database:h2:1.4.192'
 
     testCompile 'junit:junit:4.12'
@@ -34,35 +42,57 @@ def wsResDir = "${projectDir}/target/main/resources/"
 sourceSets.main.java.srcDirs += wsSrcDir
 sourceSets.main.resources.srcDirs += wsResDir
 
-task wsimport << {
-	File destBin  = sourceSets.main.output.classesDir
-	File destSrc  = new File(wsSrcDir)
-	File wsdlDir  = new File(wsResDir, 'META-INF/wsdl/')
-	File wsdlPath = new File(wsdlDir, 'ieee1888.wsdl')
-	File tmpDir   = new File("${buildDir}/tmp/")
+task wsimport {
+	outputs.upToDateWhen {
+		new File(wsSrcDir).exists()
+	}
+	doLast {
+		File destBin  = sourceSets.main.output.classesDir
+		File destSrc  = new File(wsSrcDir)
+		File wsdlDir  = new File(wsResDir, 'META-INF/wsdl/')
+		File wsdlPath = new File(wsdlDir, 'ieee1888.wsdl')
+		File tmpDir   = new File("${buildDir}/tmp/")
 
-	tmpDir.mkdirs()
-	destSrc.mkdirs()
-	destBin.mkdirs()
-	wsdlDir.mkdirs()
+		tmpDir.mkdirs()
+		destSrc.mkdirs()
+		destBin.mkdirs()
+		wsdlDir.mkdirs()
 
-    ant.taskdef(
-    	name: 'wsimport',
-    	classname: 'com.sun.tools.ws.ant.WsImport',
-    	classpath: configurations.wsimport.asPath
-    )
+	    ant.taskdef(
+	    	name: 'wsimport',
+	    	classname: 'com.sun.tools.ws.ant.WsImport',
+	    	classpath: configurations.wsimport.asPath
+	    )
 
-    ant.get(
-    	src: 'http://fiap-sandbox.gutp.ic.i.u-tokyo.ac.jp/axis2/services/FIAPStorage?wsdl',
-    	dest: wsdlPath
-    )
+	    ant.get(
+	    	src: 'http://fiap-sandbox.gutp.ic.i.u-tokyo.ac.jp/axis2/services/FIAPStorage?wsdl',
+	    	dest: wsdlPath
+	    )
 
-    ant.wsimport(
-    	wsdl: wsdlPath,
-	    destdir: destBin,
-	    sourcedestdir: destSrc,
-	    clientJar: new File(tmpDir, "ieee1888.jar"), // これを指定すると、wsdlファイルを内部に持つ
-    	encoding: 'UTF-8'
-    )
+	    ant.wsimport(
+	    	wsdl: wsdlPath,
+		    destdir: destBin,
+		    sourcedestdir: destSrc,
+		    clientJar: new File(tmpDir, "ieee1888.jar"), // これを指定すると、wsdlファイルを内部に持つ
+	    	encoding: 'UTF-8'
+	    )
+    }
 }
 compileJava.dependsOn wsimport
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: new File(projectDir, "dist").toURI())
+            pom.project {
+                licenses {
+                    license {
+                        name 'Unlicense'
+                        url 'http://unlicense.org/UNLICENSE'
+                        distribution 'repo'
+                    }
+                }
+            }
+        }
+    }
+}
