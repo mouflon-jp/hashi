@@ -3,8 +3,6 @@ package com.github.mouflon_jp.jfiap.ieee1888;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -17,10 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Endpoint;
 
@@ -31,6 +26,8 @@ import org.fiap.soap.FIAPStorage;
 import org.fiap.soap.QueryRQ;
 import org.fiap.soap.QueryRS;
 
+import com.github.mouflon_jp.jfiap.util.FIAPObjects;
+
 import jp.gutp.fiap._2009._11.Body;
 import jp.gutp.fiap._2009._11.Header;
 import jp.gutp.fiap._2009._11.Key;
@@ -39,7 +36,6 @@ import jp.gutp.fiap._2009._11.PointSet;
 import jp.gutp.fiap._2009._11.Query;
 import jp.gutp.fiap._2009._11.QueryType;
 import jp.gutp.fiap._2009._11.Transport;
-import jp.gutp.fiap._2009._11.Value;
 
 public class FIAPClient {
 
@@ -164,7 +160,7 @@ public class FIAPClient {
 		query.setId(UUID.randomUUID().toString());
 		query.setType(QueryType.STORAGE);
 		Body body = fetch(query);
-		return createPointMap(body.getPoint());
+		return FIAPObjects.createPointMap(body.getPoint());
 	}
 
 	/**
@@ -188,7 +184,7 @@ public class FIAPClient {
 	 */
 	public void writePoint(Map<String, Map<Instant, String>> pointValues) throws FIAPException{
 		Body body = new Body();
-		body.getPoint().addAll(createPointList(pointValues));
+		body.getPoint().addAll(FIAPObjects.createPointList(pointValues));
 		write(body);
 	}
 
@@ -438,7 +434,7 @@ public class FIAPClient {
 						throw new FIAPException("No body");
 					}
 
-					Map<String, Map<Instant, String>> map = createPointMap(b.getPoint());
+					Map<String, Map<Instant, String>> map = FIAPObjects.createPointMap(b.getPoint());
 					for(Entry<String, Map<Instant, String>> e : map.entrySet()){
 						if(!store.containsKey(e.getKey())){
 							store.put(e.getKey(), e.getValue());
@@ -468,16 +464,6 @@ public class FIAPClient {
 
 	// ------------------------------------------------------------------------
 
-	private static ThreadLocal<DatatypeFactory> dtf = new ThreadLocal<DatatypeFactory>(){
-		@Override
-		protected DatatypeFactory initialValue() {
-			try {
-				return DatatypeFactory.newInstance();
-			} catch (DatatypeConfigurationException e) {
-				throw new InternalError(e);
-			}
-		};
-	};
 	private static ScheduledExecutorService __service;
 
 	// ------------------------------------------------------------------------
@@ -518,52 +504,6 @@ public class FIAPClient {
 				}
 			}
 		}
-	}
-
-	private static Map<String, Map<Instant, String>> createPointMap(Iterable<Point> points){
-		Map<String, Map<Instant, String>> ret = new HashMap<>();
-		for (Point point : points) {
-			if(!ret.containsKey(point.getId())){
-				ret.put(point.getId(), new HashMap<>());
-			}
-
-			Map<Instant, String> values = ret.get(point.getId());
-			values.putAll(
-				point.getValue().stream()
-				.collect(Collectors.toMap(
-						it -> it.getTime().toGregorianCalendar().toInstant(),
-						it -> it.getValue()
-				))
-			);
-		};
-		return ret;
-	}
-
-	private static List<Point> createPointList(Map<String, Map<Instant, String>> pointValues){
-		List<Point> list = new ArrayList<>();
-		DatatypeFactory dataFactory = dtf.get();
-		GregorianCalendar cal = new GregorianCalendar();
-
-		for (Entry<String, Map<Instant, String>> pointValue : pointValues.entrySet()) {
-			Point point = new Point();
-			point.setId(pointValue.getKey());
-
-			point.getValue().addAll(
-				pointValue.getValue().entrySet().stream()
-				.map(it -> {
-					Value value = new Value();
-					cal.setTimeInMillis(it.getKey().toEpochMilli());
-					value.setTime(dataFactory.newXMLGregorianCalendar(cal));
-					value.setValue(it.getValue());
-					return value;
-				})
-				.collect(Collectors.toList())
-			);
-
-			list.add(point);
-		}
-
-		return list;
 	}
 
 	private void validateTransport(Transport trans) throws FIAPException {
