@@ -30,9 +30,6 @@ dependencies {
 	compile 'org.eclipse.jetty.aggregate:jetty-all:9.3.10.v20160621'
 	compile 'com.h2database:h2:1.4.192'
 
-	compile 'net.bytebuddy:byte-buddy:1.4.12'
-	compile 'net.bytebuddy:byte-buddy-agent:1.4.12'
-
     testCompile 'junit:junit:4.12'
     testCompile "org.codehaus.groovy:groovy-all:2.4.7"
     testCompile 'org.spockframework:spock-core:1.1-groovy-2.4-rc-1'
